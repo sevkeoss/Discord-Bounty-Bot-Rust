@@ -14,6 +14,7 @@ static mut ACTIVE_BOUNTIES: Lazy<HashMap<Uuid, Bounty>> = Lazy::new(|| {
     // Perform any initialization if needed
     map
 });
+
 struct Bounty {
     lister: User,
     hunter: User,
@@ -35,7 +36,7 @@ impl Bounty {
 pub fn handle_bounty(input: ApplicationCommandInteraction) {
     let id = Uuid::new_v4();
 
-    let mut hunter: User;
+    let mut hunter: User = User::default();
     let mut number: u32 = 0;
     for args in input.data.options {
         match args.name.as_str() {

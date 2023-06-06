@@ -1,8 +1,10 @@
+use dotenv::dotenv;
 use serenity::async_trait;
 use serenity::framework::standard::StandardFramework;
 use serenity::model::prelude::interaction::Interaction;
 use serenity::model::prelude::Ready;
 use serenity::prelude::{Client, Context, EventHandler, GatewayIntents};
+use std::env;
 
 pub mod commands;
 
@@ -31,12 +33,17 @@ impl EventHandler for Handler {
 
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
+
     // set the bot's prefix to "/"
     let framework = StandardFramework::new().configure(|c| c.prefix("/"));
 
     // Login with a bot token from the environment
-    let token = "MTExMDAzMDQyNzg2OTE1MTMzNA.Gx4tiA.RmV2RPFeiIF8lEg9x2THGjapRGzC52UodHA9UY";
-    let application_id = 1110030427869151334;
+    let token = env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN not set.");
+    let application_id = env::var("APPLICATION_ID")
+        .expect("APPLICATION_ID not set.")
+        .parse()
+        .expect("Failed to parse APPLICATION_ID.");
 
     let intents = GatewayIntents::default();
     let mut client = Client::builder(token, intents)
