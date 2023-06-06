@@ -1,0 +1,12 @@
+[package]
+name = "discord-bot-rust"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1.28.2", features = ["macros", "rt-multi-thread"] }
+serenity = "0.11.5"
+once_cell = "1.18.0"
+uuid = { version = "1.3.3", features = ["v4"] }
