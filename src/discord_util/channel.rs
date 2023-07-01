@@ -1,11 +1,11 @@
 use serenity::http::Http;
 use serenity::model::permissions::Permissions;
 
+use serenity::model::prelude::component::ButtonStyle;
 use serenity::model::prelude::{
     ChannelId, ChannelType, GuildChannel, GuildId, PermissionOverwrite, PermissionOverwriteType,
     UserId,
 };
-use serenity::prelude::Context;
 
 use crate::commands::bounty;
 
@@ -29,7 +29,8 @@ pub async fn create_private_text_channel(
     guild_id: GuildId,
     category_name: &str,
     bounty: &bounty::Bounty,
-) {
+    id: &str,
+) -> Result<(), String> {
     let channel_name = format!(
         "{}-{}-bounty{}",
         bounty.lister.name, bounty.hunter.name, bounty.bounty_number
@@ -37,7 +38,7 @@ pub async fn create_private_text_channel(
 
     let category_id: Option<ChannelId> = get_category_id(http, guild_id, category_name).await;
     if let None = category_id {
-        return;
+        return Err(String::from("Could not create private text channel"));
     }
 
     let everyone_role = guild_id
@@ -81,9 +82,37 @@ pub async fn create_private_text_channel(
         })
         .await
     {
-        Ok(_) => (),
-        Err(err) => eprintln!("Could not create private channel. {}", err),
-    };
+        Ok(channel) => {
+            let intro = format!(
+                "{} would like to start a bounty with you {}. Please accept or decline.",
+                bounty.lister.name, bounty.hunter.name
+            );
+
+            if let Err(err) = channel
+                .send_message(http, |m| {
+                    m.content(intro).components(|c| {
+                        c.create_action_row(|r| {
+                            r.create_button(|b| {
+                                b.style(ButtonStyle::Success)
+                                    .label("Accept")
+                                    .custom_id(String::from("Accept/") + id)
+                            })
+                            .create_button(|b| {
+                                b.style(ButtonStyle::Danger)
+                                    .label("Decline")
+                                    .custom_id(String::from("Decline/") + id)
+                            })
+                        })
+                    })
+                })
+                .await
+            {
+                eprintln!("Could not send intro message for bounty: {}", err);
+            };
+            Ok(())
+        }
+        Err(err) => Err(err.to_string()),
+    }
 }
 
 async fn get_category_id(http: &Http, guild_id: GuildId, category_name: &str) -> Option<ChannelId> {
@@ -98,18 +127,4 @@ async fn get_category_id(http: &Http, guild_id: GuildId, category_name: &str) ->
     }
 
     None
-}
-
-async fn get_bot_permissions(ctx: &Context, guild_id: GuildId) {
-    if let Ok(bot_member) = guild_id
-        .member(&ctx.http, ctx.cache.current_user_id())
-        .await
-    {
-        println!("Bot member: {:?}", bot_member);
-        if let Ok(permissions) = bot_member.permissions(&ctx.cache) {
-            println!("Permissions: {}", permissions);
-        } else {
-            println!("Not ok");
-        }
-    }
 }

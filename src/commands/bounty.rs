@@ -13,6 +13,7 @@ use serenity::{
                 message_component::MessageComponentInteraction,
                 InteractionResponseType, MessageFlags,
             },
+            GuildChannel,
         },
         user::User,
     },
@@ -115,14 +116,17 @@ pub async fn confirm_bounty(
                 ));
             }
 
-            println!("Before create");
-            discord_util::channel::create_private_text_channel(
+            if let Err(err) = discord_util::channel::create_private_text_channel(
                 http,
                 component.guild_id.unwrap(),
                 "BOUNTY PLATFORM",
                 bounty,
+                id,
             )
-            .await;
+            .await
+            {
+                eprintln!("Could not create channel: {}", err);
+            }
         }
         None => {
             return Err(String::from("Not found"));
@@ -130,6 +134,24 @@ pub async fn confirm_bounty(
     }
 
     Ok(())
+}
+
+pub async fn complete(http: &Http, component: &MessageComponentInteraction, id: &str) {
+    let message = "Please complete the bounty when the task is done.";
+
+    let _ = component
+        .create_followup_message(http, |m| {
+            m.content(message).components(|c| {
+                c.create_action_row(|r| {
+                    r.create_button(|b| {
+                        b.style(ButtonStyle::Success)
+                            .label("Complete Bounty")
+                            .custom_id(String::from("Complete/") + id)
+                    })
+                })
+            })
+        })
+        .await;
 }
 
 fn extract_command_args(input: ApplicationCommandInteraction) -> (User, u32) {
@@ -162,15 +184,4 @@ fn extract_command_args(input: ApplicationCommandInteraction) -> (User, u32) {
     }
 
     (hunter, number)
-
-    // super::get_bot_permissions(ctx, guild_id).await;
-
-    // super::create_private_text_channel(
-    //     http,
-    //     guild_id,
-    //     "BOUNTY PLATFORM",
-    //     input.user.clone(),
-    //     hunter.clone(),
-    // )
-    // .await;
 }

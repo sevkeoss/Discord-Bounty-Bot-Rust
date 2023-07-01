@@ -18,7 +18,7 @@ impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
         match interaction {
             Interaction::ApplicationCommand(command) => {
-                let content: CreateInteractionResponse<'_> = match command.data.name.as_str() {
+                let content = match command.data.name.as_str() {
                     "bounty" => commands::bounty::run(&command),
                     _ => CreateInteractionResponse::default()
                         .kind(InteractionResponseType::ChannelMessageWithSource)
@@ -36,9 +36,13 @@ impl EventHandler for Handler {
                 }
             }
             Interaction::MessageComponent(component) => {
-                let ind = component.data.custom_id.find('/').unwrap();
+                let ind = component
+                    .data
+                    .custom_id
+                    .find('/')
+                    .unwrap_or_else(|| component.data.custom_id.len());
                 let command = &component.data.custom_id[..ind];
-                println!("Command: {}", command);
+                let id = &component.data.custom_id[ind + 1..];
                 match command {
                     "bounty" => {
                         let res = commands::bounty::confirm_bounty(&ctx.http, &component).await;
@@ -59,6 +63,34 @@ impl EventHandler for Handler {
                             Err(err) => {
                                 eprintln!("Err: {}", err);
                             }
+                        }
+                    }
+                    "Accept" => {
+                        if let Err(err) = component
+                            .create_interaction_response(&ctx.http, |r| {
+                                r.kind(InteractionResponseType::UpdateMessage)
+                                    .interaction_response_data(|d| {
+                                        d.content("Accepted").components(|c| c)
+                                    })
+                            })
+                            .await
+                        {
+                            eprintln!("Failed to accept bounty: {:?}", err);
+                        }
+
+                        commands::bounty::complete(&ctx.http, &component, id).await;
+                    }
+                    "Decline" => {
+                        if let Err(err) = component
+                            .create_interaction_response(&ctx.http, |r| {
+                                r.kind(InteractionResponseType::UpdateMessage)
+                                    .interaction_response_data(|d| {
+                                        d.content("Declined").components(|c| c)
+                                    })
+                            })
+                            .await
+                        {
+                            eprintln!("Failed to decline bounty: {:?}", err);
                         }
                     }
                     _ => {
