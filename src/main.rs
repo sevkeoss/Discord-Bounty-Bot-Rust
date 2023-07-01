@@ -1,5 +1,6 @@
 use dotenv::dotenv;
 use serenity::async_trait;
+use serenity::builder::CreateInteractionResponse;
 use serenity::framework::StandardFramework;
 use serenity::model::prelude::interaction::{Interaction, InteractionResponseType};
 use serenity::model::prelude::{GuildId, Ready};
@@ -8,30 +9,64 @@ use serenity::prelude::{Client, Context, EventHandler, GatewayIntents};
 use std::env;
 
 mod commands;
+mod discord_util;
 
 struct Handler;
 
 #[async_trait]
 impl EventHandler for Handler {
     async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
-        if let Interaction::ApplicationCommand(command) = interaction {
-            let content = match command.data.name.as_str() {
-                "bounty" => commands::bounty::run(&command.data.options),
-                _ => "not implemented".to_string(),
-            };
+        match interaction {
+            Interaction::ApplicationCommand(command) => {
+                let content: CreateInteractionResponse<'_> = match command.data.name.as_str() {
+                    "bounty" => commands::bounty::run(&command),
+                    _ => CreateInteractionResponse::default()
+                        .kind(InteractionResponseType::ChannelMessageWithSource)
+                        .clone(),
+                };
 
-            if let Err(why) = command
-                .create_interaction_response(
-                    &ctx.http,
-                    |r: &mut serenity::builder::CreateInteractionResponse| {
-                        r.kind(InteractionResponseType::ChannelMessageWithSource)
-                            .interaction_response_data(|d| d.content(content).components(|c| c))
-                    },
-                )
-                .await
-            {
-                println!("Failed to send reply: {:?}", why);
+                if let Err(err) = command
+                    .create_interaction_response(&ctx.http, |r| {
+                        *r = content.clone();
+                        r
+                    })
+                    .await
+                {
+                    eprintln!("Failed to ask for confirmation: {:?}", err);
+                }
             }
+            Interaction::MessageComponent(component) => {
+                let ind = component.data.custom_id.find('/').unwrap();
+                let command = &component.data.custom_id[..ind];
+                println!("Command: {}", command);
+                match command {
+                    "bounty" => {
+                        let res = commands::bounty::confirm_bounty(&ctx.http, &component).await;
+                        match res {
+                            Ok(_) => {
+                                if let Err(err) = component
+                                    .create_interaction_response(&ctx.http, |r| {
+                                        r.kind(InteractionResponseType::UpdateMessage)
+                                            .interaction_response_data(|d| {
+                                                d.content("Confirmed").components(|c| c)
+                                            })
+                                    })
+                                    .await
+                                {
+                                    eprintln!("Failed to confirm bounty: {:?}", err);
+                                }
+                            }
+                            Err(err) => {
+                                eprintln!("Err: {}", err);
+                            }
+                        }
+                    }
+                    _ => {
+                        println!("{:#?}", component);
+                    }
+                }
+            }
+            _ => (),
         }
     }
 
@@ -45,15 +80,10 @@ impl EventHandler for Handler {
                 .expect("Could not parse GUILD_ID"),
         );
 
-        let commands = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
+        let _commands = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
             commands.create_application_command(|command| commands::bounty::register(command))
         })
         .await;
-
-        println!(
-            "I now have the following guild slash commands: {:#?}",
-            commands
-        );
     }
 }
 
