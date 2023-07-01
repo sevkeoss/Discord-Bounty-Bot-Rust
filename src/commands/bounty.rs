@@ -1,8 +1,5 @@
 use once_cell::sync::Lazy;
-use std::{
-    collections::HashMap,
-    io::{self, Error},
-};
+use std::collections::HashMap;
 
 use serenity::{
     builder::{CreateApplicationCommand, CreateInteractionResponse},
@@ -30,10 +27,10 @@ static mut ACTIVE_BOUNTIES: Lazy<HashMap<Uuid, Bounty>> = Lazy::new(|| {
 });
 
 #[derive(Debug)]
-struct Bounty {
-    lister: User,
-    hunter: User,
-    bounty_number: u32,
+pub struct Bounty {
+    pub lister: User,
+    pub hunter: User,
+    pub bounty_number: u32,
     middlemen: Vec<User>,
 }
 
@@ -123,8 +120,7 @@ pub async fn confirm_bounty(
                 http,
                 component.guild_id.unwrap(),
                 "BOUNTY PLATFORM",
-                bounty.lister.clone(),
-                bounty.hunter.clone(),
+                bounty,
             )
             .await;
         }

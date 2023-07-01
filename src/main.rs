@@ -80,10 +80,18 @@ impl EventHandler for Handler {
                 .expect("Could not parse GUILD_ID"),
         );
 
-        let _commands = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
+        let category_name = env::var("BOUNTY_CATEGORY").expect("Bounty Category not set.");
+
+        if let Err(err) = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
             commands.create_application_command(|command| commands::bounty::register(command))
         })
-        .await;
+        .await
+        {
+            panic!("Could not register commands. {}", err);
+        };
+
+        discord_util::channel::create_category_if_no_exist(&ctx.http, guild_id, &category_name)
+            .await;
     }
 }
 

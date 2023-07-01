@@ -5,8 +5,9 @@ use serenity::model::prelude::{
     ChannelId, ChannelType, GuildChannel, GuildId, PermissionOverwrite, PermissionOverwriteType,
     UserId,
 };
-use serenity::model::user::User;
 use serenity::prelude::Context;
+
+use crate::commands::bounty;
 
 pub async fn create_category_if_no_exist(http: &Http, guild_id: GuildId, category_name: &str) {
     let category_id = get_category_id(http, guild_id, category_name).await;
@@ -19,9 +20,7 @@ pub async fn create_category_if_no_exist(http: &Http, guild_id: GuildId, categor
         .await;
 
     if let Err(err) = result {
-        eprintln!("Error creating category: {:?}", err);
-    } else {
-        println!("Successfully created category: {}", category_name);
+        panic!("Error creating category: {:?}", err);
     }
 }
 
@@ -29,15 +28,15 @@ pub async fn create_private_text_channel(
     http: &Http,
     guild_id: GuildId,
     category_name: &str,
-    lister: User,
-    hunter: User,
+    bounty: &bounty::Bounty,
 ) {
-    let channel_name = "Private Channel";
+    let channel_name = format!(
+        "{}-{}-bounty{}",
+        bounty.lister.name, bounty.hunter.name, bounty.bounty_number
+    );
 
-    println!("In here");
     let category_id: Option<ChannelId> = get_category_id(http, guild_id, category_name).await;
     if let None = category_id {
-        println!("Not found");
         return;
     }
 
@@ -49,8 +48,6 @@ pub async fn create_private_text_channel(
         .find(|&role| role.name == "@everyone")
         .unwrap()
         .clone();
-
-    println!("Everyone role done");
 
     match guild_id
         .create_channel(http, |channel| {
@@ -72,12 +69,12 @@ pub async fn create_private_text_channel(
                     PermissionOverwrite {
                         allow: Permissions::VIEW_CHANNEL,
                         deny: Permissions::empty(),
-                        kind: PermissionOverwriteType::Member(lister.id), // User ID of the specific user
+                        kind: PermissionOverwriteType::Member(bounty.lister.id), // User ID of the specific user
                     },
                     PermissionOverwrite {
                         allow: Permissions::VIEW_CHANNEL,
                         deny: Permissions::empty(),
-                        kind: PermissionOverwriteType::Member(hunter.id), // User ID of the specific user
+                        kind: PermissionOverwriteType::Member(bounty.hunter.id), // User ID of the specific user
                     },
                     // Add more PermissionOverwrite objects for other users or roles as needed
                 ])
@@ -94,7 +91,6 @@ async fn get_category_id(http: &Http, guild_id: GuildId, category_name: &str) ->
 
     if let Ok(channels) = channels {
         for channel in channels.values() {
-            println!("Channel: {:?}", channel.name());
             if channel.kind == ChannelType::Category && channel.name == category_name {
                 return Some(channel.id);
             }
