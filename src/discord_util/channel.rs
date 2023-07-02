@@ -2,10 +2,12 @@ use serenity::http::Http;
 use serenity::model::permissions::Permissions;
 
 use serenity::model::prelude::component::ButtonStyle;
+use serenity::model::prelude::message_component::MessageComponentInteraction;
 use serenity::model::prelude::{
     ChannelId, ChannelType, GuildChannel, GuildId, PermissionOverwrite, PermissionOverwriteType,
     UserId,
 };
+use serenity::prelude::Context;
 
 use crate::commands::bounty;
 
@@ -22,6 +24,20 @@ pub async fn create_category_if_no_exist(http: &Http, guild_id: GuildId, categor
     if let Err(err) = result {
         panic!("Error creating category: {:?}", err);
     }
+}
+
+async fn get_category_id(http: &Http, guild_id: GuildId, category_name: &str) -> Option<ChannelId> {
+    let channels = guild_id.channels(http).await;
+
+    if let Ok(channels) = channels {
+        for channel in channels.values() {
+            if channel.kind == ChannelType::Category && channel.name == category_name {
+                return Some(channel.id);
+            }
+        }
+    }
+
+    None
 }
 
 pub async fn create_private_text_channel(
@@ -60,24 +76,23 @@ pub async fn create_private_text_channel(
                     PermissionOverwrite {
                         allow: Permissions::empty(),
                         deny: Permissions::VIEW_CHANNEL,
-                        kind: PermissionOverwriteType::Role(everyone_role.id), // User ID of the specific user
+                        kind: PermissionOverwriteType::Role(everyone_role.id),
                     },
                     PermissionOverwrite {
                         allow: Permissions::VIEW_CHANNEL,
                         deny: Permissions::empty(),
-                        kind: PermissionOverwriteType::Member(UserId(1110030427869151334)),
+                        kind: PermissionOverwriteType::Member(UserId(1110030427869151334)), // User ID of the bot
                     },
                     PermissionOverwrite {
                         allow: Permissions::VIEW_CHANNEL,
                         deny: Permissions::empty(),
-                        kind: PermissionOverwriteType::Member(bounty.lister.id), // User ID of the specific user
+                        kind: PermissionOverwriteType::Member(bounty.lister.id), // User ID of the bounty lister
                     },
                     PermissionOverwrite {
                         allow: Permissions::VIEW_CHANNEL,
                         deny: Permissions::empty(),
-                        kind: PermissionOverwriteType::Member(bounty.hunter.id), // User ID of the specific user
+                        kind: PermissionOverwriteType::Member(bounty.hunter.id), // User ID of the bounty hunter
                     },
-                    // Add more PermissionOverwrite objects for other users or roles as needed
                 ])
         })
         .await
@@ -115,16 +130,15 @@ pub async fn create_private_text_channel(
     }
 }
 
-async fn get_category_id(http: &Http, guild_id: GuildId, category_name: &str) -> Option<ChannelId> {
-    let channels = guild_id.channels(http).await;
-
-    if let Ok(channels) = channels {
-        for channel in channels.values() {
-            if channel.kind == ChannelType::Category && channel.name == category_name {
-                return Some(channel.id);
-            }
+pub async fn switch_category(
+    ctx: &Context,
+    component: &MessageComponentInteraction,
+    new_category: &str,
+) {
+    if let Ok(mut channel) = component.channel_id.to_channel(&ctx.http).await {
+        if let Some(text_channel) = channel.guild() {
+            println!("{:#?}", component.channel_id);
+            // component.channel_id.
         }
     }
-
-    None
 }

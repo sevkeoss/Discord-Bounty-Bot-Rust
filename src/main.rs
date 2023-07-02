@@ -65,37 +65,10 @@ impl EventHandler for Handler {
                             }
                         }
                     }
-                    "Accept" => {
-                        if let Err(err) = component
-                            .create_interaction_response(&ctx.http, |r| {
-                                r.kind(InteractionResponseType::UpdateMessage)
-                                    .interaction_response_data(|d| {
-                                        d.content("Accepted").components(|c| c)
-                                    })
-                            })
-                            .await
-                        {
-                            eprintln!("Failed to accept bounty: {:?}", err);
-                        }
-
-                        commands::bounty::complete(&ctx.http, &component, id).await;
-                    }
-                    "Decline" => {
-                        if let Err(err) = component
-                            .create_interaction_response(&ctx.http, |r| {
-                                r.kind(InteractionResponseType::UpdateMessage)
-                                    .interaction_response_data(|d| {
-                                        d.content("Declined").components(|c| c)
-                                    })
-                            })
-                            .await
-                        {
-                            eprintln!("Failed to decline bounty: {:?}", err);
-                        }
-                    }
-                    _ => {
-                        println!("{:#?}", component);
-                    }
+                    "Accept" => commands::bounty::accept(&ctx.http, &component, id).await,
+                    "Decline" => commands::bounty::decline(&ctx.http, &component).await,
+                    "Complete" => commands::bounty::complete(&ctx, &component).await,
+                    _ => eprintln!("Uknown button id"),
                 }
             }
             _ => (),
@@ -112,8 +85,6 @@ impl EventHandler for Handler {
                 .expect("Could not parse GUILD_ID"),
         );
 
-        let category_name = env::var("BOUNTY_CATEGORY").expect("Bounty Category not set.");
-
         if let Err(err) = GuildId::set_application_commands(&guild_id, &ctx.http, |commands| {
             commands.create_application_command(|command| commands::bounty::register(command))
         })
@@ -121,6 +92,8 @@ impl EventHandler for Handler {
         {
             panic!("Could not register commands. {}", err);
         };
+
+        let category_name: String = env::var("BOUNTY_CATEGORY").expect("Bounty Category not set.");
 
         discord_util::channel::create_category_if_no_exist(&ctx.http, guild_id, &category_name)
             .await;
