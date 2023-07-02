@@ -3,7 +3,7 @@ use std::{collections::HashMap, env};
 
 use serenity::{
     builder::{CreateApplicationCommand, CreateInteractionResponse},
-    http::{CacheHttp, Http},
+    http::Http,
     model::{
         prelude::{
             command::CommandOptionType,
@@ -32,7 +32,6 @@ pub struct Bounty {
     pub lister: User,
     pub hunter: User,
     pub bounty_number: u32,
-    middlemen: Vec<User>,
 }
 
 impl Bounty {
@@ -41,7 +40,6 @@ impl Bounty {
             lister: lister.clone(),
             hunter,
             bounty_number,
-            middlemen: Vec::new(),
         }
     }
 }
@@ -142,44 +140,44 @@ pub async fn accept(http: &Http, component: &MessageComponentInteraction, id: &s
         curr_bounty = ACTIVE_BOUNTIES.get(&Uuid::parse_str(id).unwrap()).unwrap();
     }
 
-    // if component.user != curr_bounty.hunter {
-    //     let message = "Only the bounty hunter can accept the bounty";
+    if component.user != curr_bounty.hunter {
+        let message = "Only the bounty hunter can accept the bounty";
 
-    //     let _ = component
-    //         .create_interaction_response(http, |r| {
-    //             r.kind(InteractionResponseType::ChannelMessageWithSource)
-    //                 .interaction_response_data(|d| {
-    //                     d.content(message).flags(MessageFlags::EPHEMERAL)
-    //                 })
-    //         })
-    //         .await;
-    // } else {
-    if let Err(err) = component
-        .create_interaction_response(http, |r| {
-            r.kind(InteractionResponseType::UpdateMessage)
-                .interaction_response_data(|d| d.content("Accepted").components(|c| c))
-        })
-        .await
-    {
-        eprintln!("Failed to accept bounty: {:?}", err);
-    }
+        let _ = component
+            .create_interaction_response(http, |r| {
+                r.kind(InteractionResponseType::ChannelMessageWithSource)
+                    .interaction_response_data(|d| {
+                        d.content(message).flags(MessageFlags::EPHEMERAL)
+                    })
+            })
+            .await;
+    } else {
+        if let Err(err) = component
+            .create_interaction_response(http, |r| {
+                r.kind(InteractionResponseType::UpdateMessage)
+                    .interaction_response_data(|d| d.content("Accepted").components(|c| c))
+            })
+            .await
+        {
+            eprintln!("Failed to accept bounty: {:?}", err);
+        }
 
-    let message = "Please complete the bounty when the task is done.";
+        let message = "Please complete the bounty when the task is done.";
 
-    let _ = component
-        .create_followup_message(http, |m| {
-            m.content(message).components(|c| {
-                c.create_action_row(|r| {
-                    r.create_button(|b| {
-                        b.style(ButtonStyle::Success)
-                            .label("Complete Bounty")
-                            .custom_id(String::from("Complete/") + id)
+        let _ = component
+            .create_followup_message(http, |m| {
+                m.content(message).components(|c| {
+                    c.create_action_row(|r| {
+                        r.create_button(|b| {
+                            b.style(ButtonStyle::Success)
+                                .label("Complete Bounty")
+                                .custom_id(String::from("Complete/") + id)
+                        })
                     })
                 })
             })
-        })
-        .await;
-    //}
+            .await;
+    }
 }
 
 fn extract_command_args(input: ApplicationCommandInteraction) -> (User, u32) {
@@ -248,6 +246,12 @@ pub async fn complete(ctx: &Context, component: &MessageComponentInteraction) {
             }
 
             discord_util::channel::switch_category(ctx, component, "Archive").await;
+            discord_util::channel::convert_to_read_only(
+                &ctx.http,
+                component.guild_id.unwrap(),
+                component.channel_id,
+            )
+            .await;
         }
     }
 }

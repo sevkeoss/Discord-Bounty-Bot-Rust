@@ -1,4 +1,5 @@
 use dotenv::dotenv;
+use once_cell::sync::Lazy;
 use serenity::async_trait;
 use serenity::builder::CreateInteractionResponse;
 use serenity::framework::StandardFramework;
@@ -10,6 +11,11 @@ use std::env;
 
 mod commands;
 mod discord_util;
+
+static mut ENV_VARIABLES: Lazy<Vec<&str>> = Lazy::new(|| {
+    let vars = vec!["DISCORD_TOKEN", "GUILD_ID", "BOUNTY_CATEGORY", "NI_ROLE"];
+    vars
+});
 
 struct Handler;
 
@@ -76,6 +82,14 @@ impl EventHandler for Handler {
     }
 
     async fn ready(&self, ctx: Context, bot: Ready) {
+        unsafe {
+            for env_var in ENV_VARIABLES.iter() {
+                if let Err(_) = env::var(*env_var) {
+                    panic!("Environment variable {} is not set", *env_var);
+                }
+            }
+        }
+
         println!("Connected as {}#{}", bot.user.name, bot.user.discriminator);
 
         let guild_id = GuildId(

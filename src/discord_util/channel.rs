@@ -135,10 +135,51 @@ pub async fn switch_category(
     component: &MessageComponentInteraction,
     new_category: &str,
 ) {
-    if let Ok(mut channel) = component.channel_id.to_channel(&ctx.http).await {
-        if let Some(text_channel) = channel.guild() {
-            println!("{:#?}", component.channel_id);
-            // component.channel_id.
-        }
-    }
+    let archive_category =
+        get_category_id(&ctx.http, component.guild_id.unwrap(), new_category).await;
+    component
+        .channel_id
+        .edit(&ctx.http, |new_channel| {
+            new_channel.category(archive_category)
+        })
+        .await
+        .unwrap();
+}
+
+pub async fn convert_to_read_only(http: &Http, guild_id: GuildId, channel: ChannelId) {
+    let everyone_role = guild_id
+        .roles(http)
+        .await
+        .unwrap()
+        .values()
+        .find(|&role| role.name == "@everyone")
+        .unwrap()
+        .clone();
+
+    let ni_role = guild_id
+        .roles(http)
+        .await
+        .unwrap()
+        .values()
+        .find(|&role| role.name == "NI Team")
+        .unwrap()
+        .clone();
+
+    channel
+        .edit(http, |c| {
+            c.permissions(vec![
+                PermissionOverwrite {
+                    allow: Permissions::empty(),
+                    deny: Permissions::VIEW_CHANNEL,
+                    kind: PermissionOverwriteType::Role(everyone_role.id),
+                },
+                PermissionOverwrite {
+                    allow: Permissions::VIEW_CHANNEL,
+                    deny: Permissions::empty(),
+                    kind: PermissionOverwriteType::Role(ni_role.id), // Role ID of the NI Team
+                },
+            ])
+        })
+        .await
+        .unwrap();
 }
