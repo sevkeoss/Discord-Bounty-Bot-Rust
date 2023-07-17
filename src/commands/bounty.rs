@@ -20,7 +20,7 @@ use serenity::{
 };
 use uuid::Uuid;
 
-use crate::discord_util;
+use crate::discord_util::{self, channel::add_ni_team};
 
 static mut ACTIVE_BOUNTIES: Lazy<HashMap<Uuid, Bounty>> = Lazy::new(|| {
     let map = HashMap::new();
@@ -57,7 +57,7 @@ pub fn register(command: &mut CreateApplicationCommand) -> &mut CreateApplicatio
         })
         .create_option(|option| {
             option
-                .name("number")
+                .name("bounty-number")
                 .description("The bounty number")
                 .kind(CommandOptionType::Integer)
                 .min_int_value(1)
@@ -161,6 +161,7 @@ pub async fn accept(http: &Http, component: &MessageComponentInteraction, id: &s
         {
             eprintln!("Failed to accept bounty: {:?}", err);
         }
+        add_ni_team(http, component.guild_id.unwrap(), component.channel_id).await;
 
         let message = "Please complete the bounty when the task is done.";
 
@@ -192,7 +193,7 @@ fn extract_command_args(input: ApplicationCommandInteraction) -> (User, u32) {
                     }
                 }
             }
-            "number" => {
+            "bounty-number" => {
                 if let Some(arg) = arg.resolved {
                     if let CommandDataOptionValue::Integer(val) = arg {
                         if val <= u32::MAX as i64 {
@@ -245,7 +246,7 @@ pub async fn complete(ctx: &Context, component: &MessageComponentInteraction) {
                 eprintln!("Failed to complete bounty: {:?}", err);
             }
 
-            discord_util::channel::switch_category(ctx, component, "Archive").await;
+            discord_util::channel::switch_category(ctx, component, "ARCHIVES").await;
             discord_util::channel::convert_to_read_only(
                 &ctx.http,
                 component.guild_id.unwrap(),

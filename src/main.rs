@@ -108,7 +108,11 @@ impl EventHandler for Handler {
         };
 
         let category_name: String = env::var("BOUNTY_CATEGORY").expect("Bounty Category not set.");
+        discord_util::channel::create_category_if_no_exist(&ctx.http, guild_id, &category_name)
+            .await;
 
+        let category_name: String =
+            env::var("ARCHIVE_CATEGORY").expect("Archive Category not set.");
         discord_util::channel::create_category_if_no_exist(&ctx.http, guild_id, &category_name)
             .await;
     }

@@ -146,6 +146,25 @@ pub async fn switch_category(
         .unwrap();
 }
 
+pub async fn add_ni_team(http: &Http, guild_id: GuildId, channel: ChannelId) {
+    let ni_role = guild_id
+        .roles(http)
+        .await
+        .unwrap()
+        .values()
+        .find(|&role| role.name == "NI Team")
+        .unwrap()
+        .clone();
+
+    let new_perm = PermissionOverwrite {
+        allow: Permissions::VIEW_CHANNEL,
+        deny: Permissions::empty(),
+        kind: PermissionOverwriteType::Role(ni_role.id),
+    };
+
+    let _ = channel.create_permission(http, &new_perm).await;
+}
+
 pub async fn convert_to_read_only(http: &Http, guild_id: GuildId, channel: ChannelId) {
     let everyone_role = guild_id
         .roles(http)
@@ -175,7 +194,7 @@ pub async fn convert_to_read_only(http: &Http, guild_id: GuildId, channel: Chann
                 },
                 PermissionOverwrite {
                     allow: Permissions::VIEW_CHANNEL,
-                    deny: Permissions::empty(),
+                    deny: Permissions::SEND_MESSAGES,
                     kind: PermissionOverwriteType::Role(ni_role.id), // Role ID of the NI Team
                 },
             ])
